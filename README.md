@@ -45,5 +45,55 @@ There are several ways to activate the AI assistant:
     * **Paste Image:** You can paste an image directly into the text box.
     * **Process Text:** After a screenshot, click "Process with AI" to ask questions about the extracted text.
 
+---
+
+### Architecture
+This extension uses an event-driven architecture with a central background script and a UI-controller script.
+
+* **`manifest.json`**: The core "blueprint" of the extension. It defines permissions, registers the keyboard shortcut, and tells Chrome to run `background.js` as a service worker.
+
+* **`background.js` (Service Worker)**: This is the **central hub** and event controller.
+    * It listens for all browser events (like a key-press or context menu click).
+    * It makes all external API calls to Google AI and OCR.space.
+    * It manages script injection, injecting `content.js` and `snipper.js` when needed.
+    * It acts as the single point of communication between all other parts of the extension.
+
+* **`content.js`**: This is the **front-end and user interface**.
+    * It is injected into the active web page to create, display, and manage the draggable AI modal.
+    * It handles all user interactions *within* the modal (typing, button clicks, image pasting).
+    * It sends messages to `background.js` (e.g., "user asked a follow-up") and receives responses (e.g., "here is the AI answer") to display.
+
+* **`snipper.js`**: This is a **temporary, single-purpose tool**.
+    * It is injected only when the user clicks the "snip" icon.
+    * It creates the screen overlay and allows the user to draw a selection box.
+    * Once a region is selected, it sends a message with the coordinates to `background.js` and removes itself from the page.
+
+* **`options.html` / `options.js`**: A simple settings page that allows the user to save API keys, which are stored securely using `chrome.storage.local`.
+
+#### API Architecture
+All API calls are handled securely within the `background.js` service worker.
+
+1.  **Google AI (Gemini)**:
+    * This API handles all generative AI and vision tasks, managed by the `callGoogleAI` function.
+    * **Text/Chat:** For text prompts and follow-ups, the extension uses the **`gemini-2.5-flash`** model for speed.
+    * **Image Analysis:** For right-clicked images, the extension uses the **`gemini-2.5-pro`** (vision) model.
+    * The `background.js` script formats the chat history into the Google `contents` format before sending the request.
+
+2.  **OCR.space**:
+    * This API is used exclusively for Optical Character Recognition (extracting text from images).
+    * It is managed by the `callOcrSpace` function.
+    * When a user takes a screenshot, the image data is sent to this API.
+    * The API returns only the extracted text, which is then sent to `content.js` to be displayed.
+
+#### Example Data Flow (Screenshot)
+1.  **User** clicks the "snip" icon in the **`content.js`** modal.
+2.  **`content.js`** sends a message: `{type: 'initiateScreenshot'}` to `background.js`.
+3.  **`background.js`** receives this message and injects **`snipper.js`** into the current tab.
+4.  **`snipper.js`** activates, creating the overlay. The user draws a box.
+5.  **`snipper.js`** sends a message: `{type: 'captureRegion', ...coordinates}` to `background.js` and cleans itself up.
+6.  **`background.js`** receives the coordinates, captures the visible tab, crops the image, and sends the image data to the `callOcrSpace` function.
+7.  The OCR.space API returns text.
+8.  **`background.js`** sends a final message: `{type: 'showOcrResult', text: '...'}` to **`content.js`**.
+9.  **`content.js`** receives the text and displays it in the modal's chat window.
 
 Note: This is temporary. Chrome might disable it on restart unless developer mode is enabled.
