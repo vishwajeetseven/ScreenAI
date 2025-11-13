@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "ScreenAI",
+  "version": "2.7",
+  "description": "AI assistance (Ctrl+Shift+X) with image and clipboard OCR.",
+
+  "icons": {
+    "128": "icon.png"
+  },
+  
+  "permissions": [
+    "contextMenus",
+    "scripting",
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/",
+    "https://images1-focus-opensocial.googleusercontent.com/",
+    "https://api.ocr.space/"
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "options_page": "options.html",
+  
+  "action": {
+    "default_icon": "icon.png",
+    "default_title": "ScreenAI Settings"
+  },
+  
+  "commands": {
+    "activate-ai": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+X"
+      },
+      "description": "Activate AI Assistant"
+    }
+  }
+}
