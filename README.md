@@ -1,6 +1,7 @@
 # ScreenAI (Google Chrome Extension)
 
-<img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/b1ae07be-2589-40f4-94b6-90508e58eb8e" />
+<img width="1366" height="768" alt="Screenshot 2025-11-13 163704" src="https://github.com/user-attachments/assets/7ea90ed7-656b-4fa6-9744-67f9fcbad65c" />
+
 
 
 ### Load Extension (Developer Mode)
