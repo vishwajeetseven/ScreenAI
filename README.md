@@ -27,6 +27,8 @@ After loading the extension, you must add your API keys to use the AI features.
 4.  Paste your **OCR.space API Key** into the second box. (The free key is fine).
 5.  Click **Save Keys**.
 
+### A Note on APIs
+This extension is built using the free API keys and tiers provided by Google AI and OCR.space. This makes it a great starting point, and new features can be easily added by extending the existing API functions in `background.js`.
 
 ### Usage
 There are several ways to activate the AI assistant:
