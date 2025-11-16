@@ -11,6 +11,7 @@
   // --- Store chat history ---
   let chatHistory = [];
   let loadingInterval = null; // For "Loading..." animation
+  let isProcessingFollowUp = false; // Prevent duplicate follow-up calls
 
   // --- SVG Icons ---
   const copyIconSVG = `
@@ -86,45 +87,60 @@
     }
   }
 
-  // --- Listen for messages from the background script ---
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // --- GUARD 3: Prevent duplicate message listeners ---
+  if (!window.screenAIMessageListenerRegistered) {
+    window.screenAIMessageListenerRegistered = true;
     
-    // --- GUARD 2: Prevent "zombie" scripts after extension reload ---
-    if (!chrome.runtime.id) {
-      return;
-    }
-    // --- END GUARD 2 ---
-    
-    
-    // --- NEW: Re-show modal if snip was cancelled ---
-    if (message.type === 'showModal') {
-        const modal = document.getElementById('screenai-ai-modal');
-        if (modal) modal.style.display = 'flex';
-    }
-    // --- NEW: Handle screenshot data ---
-    else if (message.type === 'screenshotReady') {
-        const modal = document.getElementById('screenai-ai-modal');
-        if (modal) modal.style.display = 'flex';
-        
-        const loadingEl = appendMessage('Extracting text...', 'system', true, 'screenai-loading-message');
-        startLoadingAnimation(loadingEl);
-        chrome.runtime.sendMessage({ type: 'doOcr', imageData: message.base64Data });
-    }
-    else if (message.type === 'showLoading') {
-      // This is for a NEW query
-      createOrShowModal("Loading...", false, true); // (content, isError, isNewChat)
-    } 
-    else if (message.type === 'showResponse') {
-      // This is the FIRST response to a NEW query
-      stopLoadingAnimation(); // Stop the animation
-      chatHistory = []; // Clear history
-      chatHistory.push({ role: 'user', content: message.prompt });
-      chatHistory.push({ role: 'assistant', content: message.response });
-      updateChatDisplay(true); // This redraws everything, removing the loading element
+    // --- Listen for messages from the background script ---
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
-      const inputEl = document.getElementById('screenai-ai-input');
-      if (inputEl) inputEl.placeholder = "Ask a follow-up...";
-    } 
+      // --- GUARD 2: Prevent "zombie" scripts after extension reload ---
+      if (!chrome.runtime.id) {
+        return;
+      }
+      // --- END GUARD 2 ---
+      
+      
+      // --- NEW: Re-show modal if snip was cancelled ---
+      if (message.type === 'showModal') {
+          const modal = document.getElementById('screenai-ai-modal');
+          if (modal) modal.style.display = 'flex';
+      }
+      // --- NEW: Handle screenshot data ---
+      else if (message.type === 'screenshotReady') {
+          const modal = document.getElementById('screenai-ai-modal');
+          if (modal) modal.style.display = 'flex';
+          
+          if (!message.base64Data) {
+            appendMessage('Error: No image data received.', 'error', true);
+            return;
+          }
+          
+          const loadingEl = appendMessage('Extracting text...', 'system', true, 'screenai-loading-message');
+          startLoadingAnimation(loadingEl);
+          chrome.runtime.sendMessage({ type: 'doOcr', imageData: message.base64Data }, (response) => {
+            if (chrome.runtime.lastError) {
+              stopLoadingAnimation();
+              if (loadingEl) loadingEl.remove();
+              appendMessage(`Error: ${chrome.runtime.lastError.message}`, 'error', true);
+            }
+          });
+      }
+      else if (message.type === 'showLoading') {
+        // This is for a NEW query
+        createOrShowModal("Loading...", false, true); // (content, isError, isNewChat)
+      } 
+      else if (message.type === 'showResponse') {
+        // This is the FIRST response to a NEW query
+        stopLoadingAnimation(); // Stop the animation
+        chatHistory = []; // Clear history
+        chatHistory.push({ role: 'user', content: message.prompt });
+        chatHistory.push({ role: 'assistant', content: message.response });
+        updateChatDisplay(true); // This redraws everything, removing the loading element
+        
+        const inputEl = document.getElementById('screenai-ai-input');
+        if (inputEl) inputEl.placeholder = "Ask a follow-up...";
+      } 
     else if (message.type === 'showFollowUpResponse') {
       // This is a response to a follow-up
       stopLoadingAnimation();
@@ -134,35 +150,42 @@
       chatHistory.push(message.response); 
       appendMessage(message.response.content, 'assistant', true);
       
+      // Reset the processing flag
+      isProcessingFollowUp = false;
+      
       const inputEl = document.getElementById('screenai-ai-input');
       if (inputEl) inputEl.placeholder = "Ask a follow-up...";
     }
-    else if (message.type === 'showEmptyModal') {
-      // This is for opening the modal without a prompt
-      createOrShowModal("", false, true); // (content, isError, isNewChat)
-    }
-    else if (message.type === 'showError' || message.type === 'showOcrError') {
-       // --- MODIFIED: Ensure modal is visible on error ---
-       const modal = document.getElementById('screenai-ai-modal');
-       if (modal) modal.style.display = 'flex';
-       
-       stopLoadingAnimation();
-       const loadingEl = document.getElementById('screenai-loading-message');
-       if (loadingEl) {
-           loadingEl.remove();
-           appendMessage(message.data, 'error', true);
-       } else {
-           createOrShowModal(message.data, true, true);
-       }
-    }
-    else if (message.type === 'showOcrResult') {
-        stopLoadingAnimation();
-        const loadingEl = document.getElementById('screenai-loading-message');
-        if (loadingEl) loadingEl.remove();
-        
-        appendMessage(message.text, 'ocr-result', true);
-    }
-  });
+      else if (message.type === 'showEmptyModal') {
+        // This is for opening the modal without a prompt
+        createOrShowModal("", false, true); // (content, isError, isNewChat)
+      }
+      else if (message.type === 'showError' || message.type === 'showOcrError') {
+         // --- MODIFIED: Ensure modal is visible on error ---
+         const modal = document.getElementById('screenai-ai-modal');
+         if (modal) modal.style.display = 'flex';
+         
+         stopLoadingAnimation();
+         const loadingEl = document.getElementById('screenai-loading-message');
+         if (loadingEl) {
+             loadingEl.remove();
+             appendMessage(message.data, 'error', true);
+         } else {
+             createOrShowModal(message.data, true, true);
+         }
+         
+         // Reset the processing flag on error
+         isProcessingFollowUp = false;
+      }
+      else if (message.type === 'showOcrResult') {
+          stopLoadingAnimation();
+          const loadingEl = document.getElementById('screenai-loading-message');
+          if (loadingEl) loadingEl.remove();
+          
+          appendMessage(message.text, 'ocr-result', true);
+      }
+    });
+  }
   
   /**
    * --- Robust Markdown to HTML Renderer ---
@@ -355,6 +378,13 @@
     
     const newQuestion = input.value.trim();
     if (!newQuestion) return;
+    
+    // Prevent duplicate calls
+    if (isProcessingFollowUp) {
+      return;
+    }
+    
+    isProcessingFollowUp = true;
 
     chatHistory.push({ role: 'user', content: newQuestion });
     appendMessage(newQuestion, 'user', true); 
@@ -364,7 +394,12 @@
     
     input.value = '';
     
-    chrome.runtime.sendMessage({ type: 'askFollowUp', history: chatHistory });
+    chrome.runtime.sendMessage({ type: 'askFollowUp', history: chatHistory }, () => {
+      // Reset flag when message is sent (or on error)
+      if (chrome.runtime.lastError) {
+        isProcessingFollowUp = false;
+      }
+    });
   }
 
   /**
@@ -373,13 +408,27 @@
   function handleOcrProcess(text) {
     if (!text) return;
     
+    // Prevent duplicate calls
+    if (isProcessingFollowUp) {
+      return;
+    }
+    
+    isProcessingFollowUp = true;
+    
     chatHistory.push({ role: 'user', content: text });
     appendMessage(text, 'user', true);
     
     const loadingEl = appendMessage('Loading', 'system', true, 'screenai-loading-message');
     startLoadingAnimation(loadingEl);
     
-    chrome.runtime.sendMessage({ type: 'askFollowUp', history: chatHistory });
+    chrome.runtime.sendMessage({ type: 'askFollowUp', history: chatHistory }, (response) => {
+      if (chrome.runtime.lastError) {
+        isProcessingFollowUp = false;
+        stopLoadingAnimation();
+        if (loadingEl) loadingEl.remove();
+        appendMessage(`Error: ${chrome.runtime.lastError.message}`, 'error', true);
+      }
+    });
   }
   
   /**
@@ -396,7 +445,13 @@
 
     try {
       const base64Data = await blobToBase64(imageBlob);
-      chrome.runtime.sendMessage({ type: 'doOcr', imageData: base64Data });
+      chrome.runtime.sendMessage({ type: 'doOcr', imageData: base64Data }, (response) => {
+        if (chrome.runtime.lastError) {
+          stopLoadingAnimation();
+          if (loadingEl) loadingEl.remove();
+          appendMessage(`Error: ${chrome.runtime.lastError.message}`, 'error', true);
+        }
+      });
     } catch (error) {
       stopLoadingAnimation();
       if (loadingEl) loadingEl.remove();
