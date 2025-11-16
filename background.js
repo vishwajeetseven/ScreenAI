@@ -1,5 +1,8 @@
 // background.js (Updated for Snipping Tool)
 
+// --- Track active API calls to prevent duplicates ---
+const activeApiCalls = new Map();
+
 // --- Helper: Convert chat history from OpenAI format to Google format ---
 function messagesToContents(messages) {
   return messages.map(msg => ({
@@ -80,7 +83,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     
   } else if (info.menuItemId === "sendTextToAI" || info.menuItemId === "sendImageToAI") {
     await injectContentScript(tab.id);
-    chrome.tabs.sendMessage(tab.id, { type: 'showLoading' });
+    safeSendMessage(tab.id, { type: 'showLoading' });
 
     if (info.menuItemId === "sendTextToAI") {
       callGoogleAI(info.selectionText, 'text', tab.id);
@@ -126,14 +129,14 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
     await injectContentScript(tab.id);
     
     if (selectionData) {
-      chrome.tabs.sendMessage(tab.id, { type: 'showLoading' });
+      safeSendMessage(tab.id, { type: 'showLoading' });
       if (selectionData.type === 'text') {
         callGoogleAI(selectionData.data, 'text', tab.id);
       } else if (selectionData.type === 'image') {
         callGoogleAI(selectionData.data, 'image', tab.id);
       }
     } else {
-      chrome.tabs.sendMessage(tab.id, { type: 'showEmptyModal' });
+      safeSendMessage(tab.id, { type: 'showEmptyModal' });
     }
   }
 });
@@ -143,36 +146,71 @@ chrome.action.onClicked.addListener(() => {
   chrome.runtime.openOptionsPage();
 });
 
+// --- Helper function to safely send messages to tabs ---
+function safeSendMessage(tabId, message, callback) {
+  if (!tabId) {
+    console.warn('ScreenAI: Cannot send message - tabId is undefined');
+    return;
+  }
+  chrome.tabs.sendMessage(tabId, message, (response) => {
+    if (chrome.runtime.lastError) {
+      // Tab might be closed or doesn't exist - this is expected in some cases
+      console.warn('ScreenAI: Failed to send message to tab', tabId, chrome.runtime.lastError.message);
+    }
+    if (callback) callback(response);
+  });
+}
+
 // --- Listen for messages from content.js / snipper.js ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Validate sender.tab exists
+  if (!sender.tab || !sender.tab.id) {
+    console.warn('ScreenAI: Message received without valid tab ID');
+    return false;
+  }
+  
+  const tabId = sender.tab.id;
+  
   if (message.type === 'askFollowUp') {
-    callGoogleAI(message.history, 'followUp', sender.tab.id);
+    callGoogleAI(message.history, 'followUp', tabId);
     return true; // Indicates async response
   }
   else if (message.type === 'doOcr') {
-    callOcrSpace(message.imageData, sender.tab.id);
+    callOcrSpace(message.imageData, tabId);
     return true; // Indicates async response
   }
   // --- NEW: Snipping Tool Listeners ---
   else if (message.type === 'initiateScreenshot') {
     // Inject the snipping script
     chrome.scripting.executeScript({
-      target: { tabId: sender.tab.id },
+      target: { tabId: tabId },
       files: ['snipper.js']
+    }).catch((error) => {
+      console.error('ScreenAI: Failed to inject snipper.js', error);
+      safeSendMessage(tabId, { type: 'showError', data: 'Failed to initialize screenshot tool.' });
     });
     return true;
   }
   else if (message.type === 'cancelScreenshot') {
     // Tell content.js to show the modal again
-    chrome.tabs.sendMessage(sender.tab.id, { type: 'showModal' });
+    safeSendMessage(tabId, { type: 'showModal' });
     return true;
   }
   else if (message.type === 'captureRegion') {
+    // Validate coordinates
+    if (typeof message.x !== 'number' || typeof message.y !== 'number' || 
+        typeof message.width !== 'number' || typeof message.height !== 'number' ||
+        typeof message.dpr !== 'number' || message.width <= 0 || message.height <= 0) {
+      console.error('ScreenAI: Invalid capture region coordinates', message);
+      safeSendMessage(tabId, { type: 'showError', data: 'Invalid screenshot region.' });
+      return true;
+    }
+    
     // 1. Capture the visible tab
     chrome.tabs.captureVisibleTab(async (dataUrl) => {
       if (chrome.runtime.lastError || !dataUrl) {
           console.error("Failed to capture tab:", chrome.runtime.lastError || "No data URL returned");
-          chrome.tabs.sendMessage(sender.tab.id, { type: 'showError', data: 'Failed to capture screen. Please try again.' });
+          safeSendMessage(tabId, { type: 'showError', data: 'Failed to capture screen. Please try again.' });
           return;
       }
       
@@ -181,13 +219,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const croppedBase64 = await cropImage(dataUrl, message.x, message.y, message.width, message.height, message.dpr);
         
         // 3. Send cropped image to content.js for OCR
-        chrome.tabs.sendMessage(sender.tab.id, {
+        safeSendMessage(tabId, {
           type: 'screenshotReady',
           base64Data: croppedBase64
         });
       } catch (error) {
         console.error('ScreenAI Crop Error:', error);
-        chrome.tabs.sendMessage(sender.tab.id, { type: 'showError', data: 'Failed to crop screenshot.' });
+        safeSendMessage(tabId, { type: 'showError', data: 'Failed to crop screenshot.' });
       }
     });
     return true; // Indicates async response
@@ -231,6 +269,15 @@ async function cropImage(dataUrl, x, y, width, height, dpr) {
 
 // --- OCR.space Core Function ---
 async function callOcrSpace(base64Data, tabId) {
+  // Prevent duplicate OCR calls for the same tab
+  const ocrCallKey = `ocr-${tabId}`;
+  if (activeApiCalls.has(ocrCallKey)) {
+    console.warn('ScreenAI: Duplicate OCR call prevented for tab', tabId);
+    return;
+  }
+  
+  activeApiCalls.set(ocrCallKey, true);
+  
   try {
     // 1. Get the OCR API Key
     const { ocrApiKey } = await chrome.storage.local.get('ocrApiKey');
@@ -261,7 +308,10 @@ async function callOcrSpace(base64Data, tabId) {
 
     // 4. Handle API-side errors
     if (json.IsErroredOnProcessing) {
-      throw new Error(`OCR.space Error: ${json.ErrorMessage[0]}`);
+      const errorMsg = (json.ErrorMessage && Array.isArray(json.ErrorMessage) && json.ErrorMessage[0]) 
+        ? json.ErrorMessage[0] 
+        : (json.ErrorMessage || 'Unknown OCR error');
+      throw new Error(`OCR.space Error: ${errorMsg}`);
     }
 
     if (!json.ParsedResults || json.ParsedResults.length === 0) {
@@ -269,8 +319,8 @@ async function callOcrSpace(base64Data, tabId) {
     }
 
     // 5. Success: Send extracted text back to content script
-    const extractedText = json.ParsedResults[0].ParsedText;
-    chrome.tabs.sendMessage(tabId, { 
+    const extractedText = json.ParsedResults[0].ParsedText || '';
+    safeSendMessage(tabId, { 
       type: 'showOcrResult', 
       text: extractedText 
     });
@@ -278,12 +328,24 @@ async function callOcrSpace(base64Data, tabId) {
   } catch (error) {
     console.error('ScreenAI OCR Error:', error);
     // Use 'showOcrError' to be handled by the same logic as 'showError'
-    chrome.tabs.sendMessage(tabId, { type: 'showOcrError', data: error.message });
+    safeSendMessage(tabId, { type: 'showOcrError', data: error.message });
+  } finally {
+    // Clear the active call flag
+    activeApiCalls.delete(ocrCallKey);
   }
 }
 
 // --- Google AI Core Function ---
 async function callGoogleAI(data, type, tabId) {
+  // Prevent duplicate calls for the same tab
+  const callKey = `${tabId}-${type}`;
+  if (activeApiCalls.has(callKey)) {
+    console.warn('ScreenAI: Duplicate API call prevented for', callKey);
+    return;
+  }
+  
+  activeApiCalls.set(callKey, true);
+  
   try {
     // 1. Get the new Google API Key from storage
     const { googleApiKey } = await chrome.storage.local.get('googleApiKey');
@@ -331,11 +393,24 @@ async function callGoogleAI(data, type, tabId) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Google AI Error: ${errorData.error.message}`);
+      let errorMessage = `Google AI Error: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData && errorData.error && errorData.error.message) {
+          errorMessage = `Google AI Error: ${errorData.error.message}`;
+        }
+      } catch (e) {
+        // If JSON parsing fails, use the default error message
+      }
+      throw new Error(errorMessage);
     }
 
-    const json = await response.json();
+    let json;
+    try {
+      json = await response.json();
+    } catch (e) {
+      throw new Error('Invalid response from Google AI API');
+    }
     
     // 3. Handle Google's safety blocking
     if (!json.candidates || json.candidates.length === 0) {
@@ -346,20 +421,28 @@ async function callGoogleAI(data, type, tabId) {
     }
 
     // 4. Parse the response and format it for content.js
-    const assistantResponseContent = json.candidates[0].content.parts[0].text;
+    const candidate = json.candidates[0];
+    if (!candidate || !candidate.content || !candidate.content.parts || !candidate.content.parts[0]) {
+      throw new Error('Invalid response structure from Google AI');
+    }
+    
+    const assistantResponseContent = candidate.content.parts[0].text || '';
+    if (!assistantResponseContent) {
+      throw new Error('Empty response from Google AI');
+    }
     
     // We *must* send role: "assistant" back to content.js for the chat bubbles to work
     const assistantResponseObject = { role: 'assistant', content: assistantResponseContent };
 
     // 5. Send data back to the content script
     if (type === 'text' || type === 'image') {
-      chrome.tabs.sendMessage(tabId, { 
+      safeSendMessage(tabId, { 
         type: 'showResponse', 
         response: assistantResponseObject.content, // Just the text
         prompt: promptForHistory // The original prompt
       });
     } else if (type === 'followUp') {
-      chrome.tabs.sendMessage(tabId, { 
+      safeSendMessage(tabId, { 
         type: 'showFollowUpResponse', 
         response: assistantResponseObject // The full {role, content} object
       });
@@ -367,7 +450,10 @@ async function callGoogleAI(data, type, tabId) {
 
   } catch (error) {
     console.error('ScreenAI Google AI Error:', error);
-    chrome.tabs.sendMessage(tabId, { type: 'showError', data: error.message });
+    safeSendMessage(tabId, { type: 'showError', data: error.message || 'An unknown error occurred' });
+  } finally {
+    // Clear the active call flag
+    activeApiCalls.delete(callKey);
   }
 }
 
