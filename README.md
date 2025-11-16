@@ -25,9 +25,7 @@ Because it's a "Bring-Your-Own-Key" (BYOK) tool, you have full control. There ar
 * **Paste & Upload:** Paste an image directly into the chat or upload one from your computer for analysis.
 * **Privacy-First:** All API calls use your *own* keys. Your data is your own.
 
-## Demo
-
-*(**Recommendation:** Your static screenshot is good, but replacing it with short animated GIFs of the features above would make your project look even more professional!)*
+## Screenshot
 
 <img width="1366" height="768" alt="ScreenAI Screenshot" src="https://github.com/user-attachments/assets/7ea90ed7-656b-4fa6-9744-67f9fcbad65c" />
 
