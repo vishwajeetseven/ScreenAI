@@ -67,7 +67,7 @@ There are several ways to activate the AI assistant:
     * **Paste Image:** You can paste an image directly into the text box.
     * **Process Text:** After a screenshot, click "Process with AI" to ask questions about the extracted text.
 
-## For Developers & Contributors
+~~## For Developers & Contributors
 
 We welcome contributions! Please feel free to open an Issue or Pull Request.
 
