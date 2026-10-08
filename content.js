@@ -1,4 +1,4 @@
-// content.js (v4.2) — Pending attachments, separate OCR button, reordered controls
+// content.js (v4.7) — Controls on left, title on right
 (() => {
   if (window.hasScreenAIModal) return;
   window.hasScreenAIModal = true;
@@ -6,10 +6,12 @@
   let chatHistory = [];
   let loadingInterval = null;
   let isProcessingFollowUp = false;
-  let pendingImage = null;            // { blob, dataUrl, name }
-  let screenshotIntent = 'attach';    // 'attach' | 'ocr'
+  let pendingImage = null;
+  let screenshotIntent = 'attach';
+  let supportsVision = true;
+  let customTitle = '';
 
-  // ---------- SVG Icons (SF Symbols style, stroke-based) ----------
+  // ---------- SVG Icons ----------
   const copyIconSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
   const checkIconSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`;
   const attachIconSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>`;
@@ -239,8 +241,55 @@
     });
   }
 
+  // ---------- Title ----------
+  function applyTitle(title) {
+    customTitle = (title || '').trim();
+    const titleEl = document.getElementById('screenai-ai-title');
+    if (titleEl) titleEl.textContent = customTitle;
+  }
+
+  function refreshTitle() {
+    try {
+      chrome.storage.local.get('customTitle', (data) => {
+        if (chrome.runtime.lastError) return;
+        applyTitle(data.customTitle || '');
+      });
+    } catch (_) {}
+  }
+
+  // ---------- Vision capability ----------
+  function applyVisionSupport(supported) {
+    supportsVision = !!supported;
+    const attachBtn = document.getElementById('screenai-attach-btn');
+    const snipBtn = document.getElementById('screenai-snip-btn');
+    if (attachBtn) attachBtn.style.display = supportsVision ? '' : 'none';
+    if (snipBtn) snipBtn.style.display = supportsVision ? '' : 'none';
+
+    if (!supportsVision && pendingImage) clearPendingImage();
+  }
+
+  function refreshVisionSupport() {
+    try {
+      chrome.runtime.sendMessage({ type: 'getCapabilities' }, (response) => {
+        if (chrome.runtime.lastError) return;
+        if (response && typeof response.supportsVision === 'boolean') {
+          applyVisionSupport(response.supportsVision);
+        }
+      });
+    } catch (_) {}
+  }
+
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local') return;
+      if (changes.activeProvider) refreshVisionSupport();
+      if (changes.customTitle) applyTitle(changes.customTitle.newValue || '');
+    });
+  } catch (_) {}
+
   // ---------- Pending attachment ----------
   function stageImage(blob, name = 'Image') {
+    if (!supportsVision) return;
     clearPendingImage();
     const dataUrl = URL.createObjectURL(blob);
     pendingImage = { blob, dataUrl, name };
@@ -293,7 +342,6 @@
 
     if (pendingImage) {
       const imgBlob = pendingImage.blob;
-      const hadText = !!newQuestion;
       clearPendingImage();
 
       blobToBase64(imgBlob).then(base64 => {
@@ -372,6 +420,7 @@
   }
 
   function handleTextInputPaste(event) {
+    if (!supportsVision) return;
     const items = (event.clipboardData || event.originalEvent.clipboardData).items;
     for (const item of items) {
       if (item.kind === 'file' && item.type.startsWith('image/')) {
@@ -545,7 +594,7 @@
             <button id="screenai-minimize-btn" title="Minimize">−</button>
             <button id="screenai-newchat-btn" title="New Chat">${newChatIconSVG}</button>
           </div>
-          <span>ScreenAI</span>
+          <span id="screenai-ai-title"></span>
         </div>
         <div id="screenai-ai-content"></div>
         <div id="screenai-ai-attachment-preview" style="display:none;">
@@ -569,7 +618,6 @@
 
       document.body.appendChild(modal);
 
-      // ---- Close (hide) ----
       document.getElementById('screenai-close-btn').onclick = () => {
         modal.style.opacity = '0';
         setTimeout(() => {
@@ -584,7 +632,6 @@
 
       document.getElementById('screenai-newchat-btn').onclick = handleNewChat;
 
-      // ---- Input ----
       const inputEl = document.getElementById('screenai-ai-input');
       const autoResize = () => {
         inputEl.style.height = 'auto';
@@ -603,7 +650,6 @@
         inputEl.style.height = 'auto';
       };
 
-      // ---- Attach / Screenshot / OCR ----
       document.getElementById('screenai-attach-btn').onclick = () => {
         document.getElementById('screenai-file-input').click();
       };
@@ -613,8 +659,8 @@
       document.getElementById('screenai-ai-attachment-remove').onclick = clearPendingImage;
       inputEl.onpaste = handleTextInputPaste;
 
-      // ---- Drag & drop onto modal ----
       modal.addEventListener('dragover', (e) => {
+        if (!supportsVision) return;
         if (e.dataTransfer?.types?.includes('Files')) {
           e.preventDefault();
           modal.classList.add('dragover');
@@ -623,6 +669,7 @@
       modal.addEventListener('dragleave', () => modal.classList.remove('dragover'));
       modal.addEventListener('drop', (e) => {
         modal.classList.remove('dragover');
+        if (!supportsVision) return;
         const file = e.dataTransfer?.files?.[0];
         if (file && file.type.startsWith('image/')) {
           e.preventDefault();
@@ -630,7 +677,6 @@
         }
       });
 
-      // ---- Escape closes ----
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           const m = document.getElementById('screenai-ai-modal');
@@ -640,7 +686,6 @@
         }
       });
 
-      // ---- Event delegation ----
       const contentEl = document.getElementById('screenai-ai-content');
       contentEl.addEventListener('click', (e) => {
         const target = e.target.closest('button');
@@ -697,7 +742,6 @@
         }
       });
 
-      // ---- Drag logic with clamping ----
       let pos3 = 0, pos4 = 0;
       const header = document.getElementById('screenai-ai-header');
 
@@ -741,9 +785,11 @@
         document.onmouseup = null;
         document.onmousemove = null;
       }
+
+      refreshVisionSupport();
+      refreshTitle();
     }
 
-    // ---- Update content ----
     if (isNewChat) {
       const contentEl = document.getElementById('screenai-ai-content');
       contentEl.innerHTML = '';

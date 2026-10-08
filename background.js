@@ -1,4 +1,4 @@
-// background.js (v4.2) — Multi-provider + imageChat + pending attachment support
+// background.js (v4.5) — Multi-provider + getCapabilities + custom title
 importScripts('providers.js');
 
 const activeApiCalls = new Map();
@@ -61,7 +61,7 @@ function safeSendMessage(tabId, message, callback) {
   if (!tabId) return;
   chrome.tabs.sendMessage(tabId, message, (response) => {
     if (chrome.runtime.lastError) {
-      console.warn('ScreenAI: sendMessage failed', chrome.runtime.lastError.message);
+      console.warn('AI: sendMessage failed', chrome.runtime.lastError.message);
     }
     if (callback) callback(response);
   });
@@ -86,7 +86,7 @@ async function injectContentScript(tabId) {
     });
     return true;
   } catch (e) {
-    console.error('ScreenAI: Failed to inject content script', e);
+    console.error('AI: Failed to inject content script', e);
     return false;
   }
 }
@@ -98,6 +98,25 @@ function isRestrictedUrl(url) {
     || url.startsWith('https://chromewebstore.google.com')
     || url.startsWith('https://microsoftedge.microsoft.com/addons');
 }
+
+// ---------- Extension action title ----------
+
+function applyActionTitle(title) {
+  const t = (title && title.trim()) || 'Settings';
+  chrome.action.setTitle({ title: t });
+}
+
+// Set on startup
+chrome.storage.local.get('customTitle', (data) => {
+  applyActionTitle(data.customTitle);
+});
+
+// React to title changes
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.customTitle) {
+    applyActionTitle(changes.customTitle.newValue);
+  }
+});
 
 // ---------- Setup ----------
 
@@ -174,7 +193,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // ---------- Keyboard shortcut ----------
 
 chrome.commands.onCommand.addListener(async (command) => {
-  console.log('ScreenAI: command received:', command);
+  console.log('AI: command received:', command);
   if (command !== "activate-ai") return;
 
   let tab;
@@ -182,17 +201,17 @@ chrome.commands.onCommand.addListener(async (command) => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     tab = tabs[0];
   } catch (e) {
-    console.error('ScreenAI: failed to query active tab', e);
+    console.error('AI: failed to query active tab', e);
     return;
   }
 
   if (!tab || !tab.id) {
-    console.warn('ScreenAI: no active tab found');
+    console.warn('AI: no active tab found');
     return;
   }
 
   if (isRestrictedUrl(tab.url)) {
-    console.warn('ScreenAI: cannot run on restricted page:', tab.url);
+    console.warn('AI: cannot run on restricted page:', tab.url);
     return;
   }
 
@@ -213,12 +232,12 @@ chrome.commands.onCommand.addListener(async (command) => {
     });
     selectionData = results?.[0]?.result;
   } catch (e) {
-    console.warn('ScreenAI: cannot read selection', e);
+    console.warn('AI: cannot read selection', e);
   }
 
   const ok = await injectContentScript(tab.id);
   if (!ok) {
-    console.error('ScreenAI: failed to inject content script');
+    console.error('AI: failed to inject content script');
     return;
   }
 
@@ -252,6 +271,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       callAI(message.history, 'followUp', tabId);
       return false;
 
+    case 'getCapabilities': {
+      getActiveProviderSettings()
+        .then(settings => {
+          sendResponse({
+            supportsVision: !!settings.provider.supportsVision,
+            providerName: settings.provider.name
+          });
+        })
+        .catch(() => {
+          sendResponse({ supportsVision: false, providerName: null });
+        });
+      return true; // async response
+    }
+
     case 'imageChat':
       sendResponse({ status: 'ok' });
       callImageChat(message.prompt, message.imageBase64, tabId);
@@ -268,7 +301,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         target: { tabId },
         files: ['snipper.js']
       }).catch((error) => {
-        console.error('ScreenAI: Failed to inject snipper.js', error);
+        console.error('AI: Failed to inject snipper.js', error);
         safeSendMessage(tabId, { type: 'showError', data: 'Failed to initialize screenshot tool.' });
       });
       return false;
@@ -283,7 +316,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (typeof message.x !== 'number' || typeof message.y !== 'number' ||
           typeof message.width !== 'number' || typeof message.height !== 'number' ||
           typeof message.dpr !== 'number' || message.width <= 0 || message.height <= 0) {
-        console.error('ScreenAI: Invalid capture region coordinates', message);
+        console.error('AI: Invalid capture region coordinates', message);
         safeSendMessage(tabId, { type: 'showError', data: 'Invalid screenshot region.' });
         return false;
       }
@@ -298,7 +331,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const croppedBase64 = await cropImage(dataUrl, message.x, message.y, message.width, message.height, message.dpr);
           safeSendMessage(tabId, { type: 'screenshotReady', base64Data: croppedBase64 });
         } catch (error) {
-          console.error('ScreenAI Crop Error:', error);
+          console.error('AI Crop Error:', error);
           safeSendMessage(tabId, { type: 'showError', data: 'Failed to crop screenshot.' });
         }
       });
@@ -384,7 +417,7 @@ async function callOcrSpace(base64Data, tabId) {
     const extractedText = json.ParsedResults[0].ParsedText || '';
     safeSendMessage(tabId, { type: 'showOcrResult', text: extractedText });
   } catch (error) {
-    console.error('ScreenAI OCR Error:', error);
+    console.error('AI OCR Error:', error);
     safeSendMessage(tabId, { type: 'showOcrError', data: error.message });
   } finally {
     activeApiCalls.delete(key);
@@ -662,7 +695,7 @@ async function callAI(data, type, tabId) {
     }
 
   } catch (error) {
-    console.error('ScreenAI AI Error:', error);
+    console.error('AI Error:', error);
     safeSendMessage(tabId, { type: 'showError', data: error.message || 'An unknown error occurred' });
   } finally {
     activeApiCalls.delete(callKey);
@@ -733,7 +766,7 @@ async function callImageChat(prompt, imageBase64, tabId) {
     });
 
   } catch (error) {
-    console.error('ScreenAI Image Chat Error:', error);
+    console.error('AI Image Chat Error:', error);
     safeSendMessage(tabId, { type: 'showError', data: error.message || 'An unknown error occurred' });
   } finally {
     activeApiCalls.delete(callKey);

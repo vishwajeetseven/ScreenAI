@@ -1,5 +1,5 @@
 /* ============================================================
-   ScreenAI — Liquid Glass UI
+   Liquid Glass UI
    ============================================================ */
 
 #screenai-ai-modal {
@@ -50,6 +50,7 @@
   user-select: none;
   cursor: move;
   position: relative;
+  gap: 8px;
 }
 
 #screenai-ai-header::after {
@@ -65,18 +66,12 @@
   pointer-events: none;
 }
 
-#screenai-ai-header > span {
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: -0.015em;
-  color: #1c1c1e;
-}
-
 #screenai-ai-controls {
-  margin-right: auto;
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
+  margin-right: auto;
 }
 
 #screenai-ai-controls button {
@@ -107,6 +102,19 @@
 #screenai-newchat-btn:hover {
   color: #007aff;
   background-color: rgba(0, 122, 255, 0.1);
+}
+
+#screenai-ai-title {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.015em;
+  color: #1c1c1e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  max-width: 60%;
 }
 
 /* ---------- Content ---------- */
@@ -200,6 +208,8 @@
 /* ---------- Messages ---------- */
 
 .screenai-message {
+  display: block;
+  clear: both;
   padding: 0;
   border-radius: 14px;
   margin-bottom: 10px;
@@ -215,14 +225,18 @@
 }
 
 .screenai-message.user {
-  background: linear-gradient(180deg, #0a84ff 0%, #007aff 100%);
+  display: block;
+  clear: both;
+  background-color: #007aff;
   color: white;
   margin-left: auto;
+  margin-right: 0;
   text-align: left;
-  padding: 9px 14px;
+  padding: 8px 12px;
   white-space: pre-wrap;
-  border-radius: 18px;
-  box-shadow: 0 1px 2px rgba(0, 122, 255, 0.25);
+  word-wrap: break-word;
+  border-radius: 14px;
+  box-shadow: none;
 }
 
 .screenai-message.assistant {
@@ -653,7 +667,7 @@
       rgba(255, 255, 255, 0) 100%);
   }
 
-  #screenai-ai-header > span { color: #f2f2f7; }
+  #screenai-ai-title { color: #f2f2f7; }
 
   #screenai-ai-controls button { color: #8e8e93; }
   #screenai-ai-controls button:hover {

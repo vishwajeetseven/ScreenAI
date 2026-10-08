@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>ScreenAI Settings</title>
+  <title>Settings</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -60,7 +60,14 @@
   </style>
 </head>
 <body>
-  <h2>ScreenAI Settings</h2>
+  <h2>Settings</h2>
+
+  <h3>Appearance</h3>
+  <div class="field">
+    <label for="custom-title">Name (shown in the modal header):</label>
+    <input type="text" id="custom-title" placeholder="Leave empty to hide" maxlength="40">
+    <p class="hint">Leave blank to show no title at the top of the modal.</p>
+  </div>
 
   <h3>Active AI Provider</h3>
   <div class="field">

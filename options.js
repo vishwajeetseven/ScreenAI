@@ -1,4 +1,4 @@
-// options.js (v4.0) — Multi-provider
+// options.js (v4.5) — Multi-provider + custom title
 
 const $ = id => document.getElementById(id);
 
@@ -8,6 +8,7 @@ const keysContainer    = $('provider-keys-container');
 const textModelSelect  = $('text-model');
 const visionModelSel   = $('vision-model');
 const systemPromptEl   = $('system-prompt');
+const customTitleEl    = $('custom-title');
 const statusEl         = $('status');
 
 const ocrKeyInput      = $('ocr-api-key');
@@ -191,6 +192,7 @@ async function testProvider(providerId, key) {
 
 $('save-btn').addEventListener('click', () => {
   const settings = {
+    customTitle: customTitleEl.value.trim(),
     activeProvider: providerSelect.value,
     systemPrompt: systemPromptEl.value,
     ocrApiKey: ocrKeyInput.value.trim(),
@@ -216,6 +218,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderProviderKeys();
 
   allSettings = await chrome.storage.local.get(null);
+
+  customTitleEl.value = allSettings.customTitle || '';
 
   const active = allSettings.activeProvider || 'google';
   providerSelect.value = active;
@@ -288,7 +292,7 @@ $('export-btn').addEventListener('click', () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `screenai-settings-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `settings-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   });

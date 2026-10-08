@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ScreenAI",
-  "version": "4.0",
-  "description": "Multi-provider AI assistance with OCR.",
+  "name": "AI Assistant",
+  "version": "4.3",
+  "description": "Multi-provider AI assistance with image analysis and OCR.",
 
   "icons": {
     "128": "icon.png"
@@ -38,7 +38,7 @@
 
   "action": {
     "default_icon": "icon.png",
-    "default_title": "ScreenAI Settings"
+    "default_title": "AI Assistant Settings"
   },
 
   "commands": {
