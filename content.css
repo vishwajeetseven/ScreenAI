@@ -1,0 +1,762 @@
+/* ============================================================
+   ScreenAI — Liquid Glass UI
+   ============================================================ */
+
+#screenai-ai-modal {
+  position: fixed;
+  width: 420px;
+  z-index: 2147483647;
+  background: rgba(252, 252, 253, 0.72);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.05),
+    0 12px 40px rgba(0, 0, 0, 0.14),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: #1c1c1e;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: height 0.25s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#screenai-ai-modal.minimized {
+  height: 52px !important;
+  min-height: 52px !important;
+  overflow: hidden;
+}
+#screenai-ai-modal.minimized #screenai-ai-content,
+#screenai-ai-modal.minimized #screenai-ai-footer,
+#screenai-ai-modal.minimized #screenai-ai-attachment-preview {
+  display: none !important;
+}
+
+/* ---------- Header ---------- */
+
+#screenai-ai-header {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  user-select: none;
+  cursor: move;
+  position: relative;
+}
+
+#screenai-ai-header::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.06) 15%,
+    rgba(0, 0, 0, 0.06) 85%,
+    rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+
+#screenai-ai-header > span {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.015em;
+  color: #1c1c1e;
+}
+
+#screenai-ai-controls {
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+#screenai-ai-controls button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6e6e73;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+#screenai-ai-controls button:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: #1c1c1e;
+}
+#screenai-ai-controls button:active {
+  transform: scale(0.94);
+}
+
+#screenai-close-btn { font-size: 16px; font-weight: 400; line-height: 1; }
+#screenai-minimize-btn { font-size: 15px; font-weight: 500; line-height: 1; }
+#screenai-newchat-btn svg { width: 15px; height: 15px; }
+#screenai-newchat-btn:hover {
+  color: #007aff;
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+/* ---------- Content ---------- */
+
+#screenai-ai-content {
+  max-height: 420px;
+  padding: 14px 16px 4px 16px;
+  overflow-y: auto;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.55;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+#screenai-ai-content:empty { padding: 0; }
+#screenai-ai-content pre { position: relative; }
+
+#screenai-ai-content::-webkit-scrollbar { width: 8px; }
+#screenai-ai-content::-webkit-scrollbar-track { background: transparent; }
+#screenai-ai-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+#screenai-ai-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.22);
+  background-clip: padding-box;
+}
+
+#screenai-ai-modal.dragover {
+  outline: 2px dashed #007aff;
+  outline-offset: -8px;
+  border-radius: 22px;
+}
+
+/* ---------- Attachment preview ---------- */
+
+#screenai-ai-attachment-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(120, 120, 128, 0.06);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  animation: screenai-fade-in 0.2s ease;
+}
+
+#screenai-ai-attachment-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+#screenai-ai-attachment-name {
+  flex: 1;
+  font-size: 12px;
+  color: #6e6e73;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#screenai-ai-attachment-remove {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: #8e8e93;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+#screenai-ai-attachment-remove:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: #1c1c1e;
+}
+#screenai-ai-attachment-remove:active {
+  transform: scale(0.9);
+}
+
+/* ---------- Messages ---------- */
+
+.screenai-message {
+  padding: 0;
+  border-radius: 14px;
+  margin-bottom: 10px;
+  max-width: 88%;
+  text-align: left;
+  font-size: 13.5px;
+  animation: screenai-fade-in 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes screenai-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.screenai-message.user {
+  background: linear-gradient(180deg, #0a84ff 0%, #007aff 100%);
+  color: white;
+  margin-left: auto;
+  text-align: left;
+  padding: 9px 14px;
+  white-space: pre-wrap;
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(0, 122, 255, 0.25);
+}
+
+.screenai-message.assistant {
+  background: rgba(120, 120, 128, 0.09);
+  color: #1c1c1e;
+  margin-right: auto;
+  padding: 1px 14px 1px 1px;
+  position: relative;
+  border-radius: 18px;
+}
+
+.screenai-message.system,
+.screenai-message.error {
+  background: rgba(120, 120, 128, 0.09);
+  color: #6e6e73;
+  text-align: center;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  max-width: 100%;
+  padding: 7px 14px;
+  border-radius: 12px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.screenai-message.error {
+  color: #ff3b30;
+  background: rgba(255, 59, 48, 0.1);
+}
+
+/* ---------- OCR bubble ---------- */
+
+.screenai-message.ocr-result {
+  background: rgba(120, 120, 128, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  color: #1c1c1e;
+  margin-right: auto;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.screenai-ocr-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px 8px 14px;
+  background: transparent;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.screenai-ocr-header > span {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6e6e73;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.screenai-copy-ocr-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6e6e73;
+  opacity: 0.8;
+  padding: 3px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.screenai-copy-ocr-btn:hover {
+  opacity: 1;
+  color: #1c1c1e;
+  background-color: rgba(0, 0, 0, 0.06);
+}
+.screenai-copy-ocr-btn svg { width: 14px; height: 14px; }
+
+.screenai-ocr-text {
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, "Courier New", monospace;
+  font-size: 12.5px;
+  color: #1c1c1e;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  padding: 10px 14px;
+  margin: 0;
+  max-height: 160px;
+  overflow-y: auto;
+  background: transparent;
+  border: none;
+  line-height: 1.5;
+}
+
+.screenai-process-ocr-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: transparent;
+  color: #007aff;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  transition: background-color 0.15s ease;
+}
+.screenai-process-ocr-btn:hover { background: rgba(0, 122, 255, 0.08); }
+.screenai-process-ocr-btn:active { background: rgba(0, 122, 255, 0.14); }
+
+.screenai-sparkle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.screenai-sparkle-icon svg { width: 14px; height: 14px; }
+
+/* ---------- Markdown ---------- */
+
+.screenai-message p { margin: 10px 0 10px 13px; }
+.screenai-message p:first-child { margin-top: 10px; }
+.screenai-message p:last-child { margin-bottom: 10px; }
+
+.screenai-message h1, .screenai-message h2, .screenai-message h3 {
+  margin: 14px 0 8px 13px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.screenai-message h1 { font-size: 1.25em; }
+.screenai-message h2 { font-size: 1.15em; }
+.screenai-message h3 { font-size: 1.05em; }
+
+.screenai-message hr {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  margin: 1em 13px;
+}
+
+.screenai-message ul, .screenai-message ol {
+  margin: 8px 0 8px 30px;
+  padding: 0;
+}
+.screenai-message li { margin-bottom: 4px; }
+
+.screenai-message ul.checklist {
+  list-style-type: none;
+  margin-left: 13px;
+}
+.screenai-message ul.checklist li { display: flex; align-items: center; }
+.screenai-message ul.checklist input[type="checkbox"] {
+  margin-right: 8px;
+  vertical-align: middle;
+  accent-color: #007aff;
+}
+
+.screenai-message em { font-style: italic; }
+.screenai-message del { text-decoration: line-through; opacity: 0.6; }
+.screenai-message strong { font-weight: 600; }
+
+.screenai-message blockquote {
+  border-left: 2.5px solid rgba(0, 122, 255, 0.5);
+  margin: 10px 0 10px 13px;
+  padding: 4px 14px;
+  color: #48484a;
+  background: rgba(0, 122, 255, 0.05);
+  border-radius: 0 8px 8px 0;
+}
+
+.screenai-message a {
+  color: #007aff;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(0, 122, 255, 0.3);
+  transition: border-color 0.15s ease;
+}
+.screenai-message a:hover { border-bottom-color: #007aff; }
+
+/* ---------- Code ---------- */
+
+.screenai-message.assistant pre {
+  background: #1c1c1e;
+  border-radius: 12px;
+  margin: 10px 0 10px 13px;
+  padding: 0;
+  border: none !important;
+  overflow: hidden;
+}
+
+.screenai-code-wrapper {
+  overflow-x: auto;
+  padding: 12px;
+  padding-top: 34px;
+}
+
+.screenai-message.assistant code {
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, "Courier New", monospace;
+  font-size: 12.5px;
+  letter-spacing: -0.005em;
+}
+
+.screenai-message.assistant pre code {
+  white-space: pre;
+  color: #f2f2f7;
+  background-color: transparent !important;
+  padding: 0;
+  border-radius: 0;
+  border: none !important;
+  line-height: 1.5;
+}
+
+.screenai-message.assistant p > code,
+.screenai-message.assistant li > code,
+.screenai-message.assistant h3 > code {
+  background-color: rgba(120, 120, 128, 0.14);
+  color: #1c1c1e;
+  padding: 2px 6px;
+  border-radius: 5px;
+  white-space: normal;
+  font-weight: 500;
+  font-size: 0.9em;
+  word-wrap: break-word;
+}
+
+/* ---------- Copy / regenerate buttons ---------- */
+
+.screenai-copy-code-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f2f2f7;
+  border: none;
+  border-radius: 7px;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.screenai-copy-code-btn:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.18);
+}
+.screenai-copy-code-btn:active { transform: scale(0.92); }
+
+.screenai-copy-response-btn,
+.screenai-regenerate-btn {
+  position: absolute;
+  z-index: 1;
+  background: transparent;
+  border: none;
+  color: #8e8e93;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.18s ease, color 0.15s ease, background-color 0.15s ease;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.screenai-copy-response-btn { top: 6px; right: -30px; }
+.screenai-regenerate-btn    { top: 34px; right: -30px; }
+
+.screenai-message.assistant:hover .screenai-copy-response-btn,
+.screenai-message.assistant:hover .screenai-regenerate-btn {
+  opacity: 0.7;
+}
+
+.screenai-copy-response-btn:hover,
+.screenai-regenerate-btn:hover {
+  opacity: 1 !important;
+  color: #007aff;
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+.screenai-copy-code-btn svg,
+.screenai-copy-response-btn svg,
+.screenai-regenerate-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.screenai-copy-btn-copied {
+  color: #34c759 !important;
+  opacity: 1 !important;
+}
+.screenai-copy-code-btn.screenai-copy-btn-copied {
+  background-color: rgba(52, 199, 89, 0.2) !important;
+}
+.screenai-copy-ocr-btn.screenai-copy-btn-copied {
+  color: #34c759 !important;
+}
+
+/* ---------- Footer ---------- */
+
+#screenai-ai-footer {
+  padding: 10px 14px 12px 14px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  position: relative;
+}
+
+#screenai-ai-footer::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.06) 15%,
+    rgba(0, 0, 0, 0.06) 85%,
+    rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+
+.screenai-footer-btn {
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  cursor: pointer;
+  color: #6e6e73;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.screenai-footer-btn:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: #1c1c1e;
+}
+.screenai-footer-btn:active { transform: scale(0.92); }
+
+#screenai-attach-btn svg,
+#screenai-snip-btn svg,
+#screenai-ocr-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+#screenai-ocr-btn:hover {
+  color: #007aff;
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+#screenai-ai-input {
+  flex-grow: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  background: transparent;
+  padding: 6px 8px;
+  margin: 0 2px;
+  resize: none;
+  font-family: inherit;
+  max-height: 130px;
+  min-height: 26px;
+  line-height: 1.4;
+  color: #1c1c1e;
+  caret-color: #007aff;
+}
+#screenai-ai-input::placeholder { color: #8e8e93; }
+
+#screenai-send-btn {
+  background: #007aff;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 122, 255, 0.35);
+  transition: background-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+}
+#screenai-send-btn svg { width: 15px; height: 15px; stroke-width: 2.25; }
+#screenai-send-btn:hover { background: #0a84ff; }
+#screenai-send-btn:active { transform: scale(0.9); }
+#screenai-send-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* ============================================================
+   Dark mode
+   ============================================================ */
+
+@media (prefers-color-scheme: dark) {
+  #screenai-ai-modal {
+    background: rgba(28, 28, 30, 0.72);
+    color: #f2f2f7;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.06),
+      0 12px 40px rgba(0, 0, 0, 0.5),
+      0 4px 12px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  #screenai-ai-header::after,
+  #screenai-ai-footer::before {
+    background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.08) 15%,
+      rgba(255, 255, 255, 0.08) 85%,
+      rgba(255, 255, 255, 0) 100%);
+  }
+
+  #screenai-ai-header > span { color: #f2f2f7; }
+
+  #screenai-ai-controls button { color: #8e8e93; }
+  #screenai-ai-controls button:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #f2f2f7;
+  }
+  #screenai-newchat-btn:hover {
+    background-color: rgba(10, 132, 255, 0.18);
+    color: #0a84ff;
+  }
+
+  #screenai-ai-attachment-preview {
+    background: rgba(120, 120, 128, 0.14);
+    border-top-color: rgba(255, 255, 255, 0.06);
+  }
+  #screenai-ai-attachment-thumb { border-color: rgba(255, 255, 255, 0.08); }
+  #screenai-ai-attachment-name { color: #8e8e93; }
+  #screenai-ai-attachment-remove { color: #8e8e93; }
+  #screenai-ai-attachment-remove:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #f2f2f7;
+  }
+
+  .screenai-message.assistant {
+    background: rgba(120, 120, 128, 0.22);
+    color: #f2f2f7;
+  }
+
+  .screenai-message.system {
+    background: rgba(120, 120, 128, 0.18);
+    color: #8e8e93;
+  }
+
+  .screenai-message.error {
+    color: #ff453a;
+    background: rgba(255, 69, 58, 0.15);
+  }
+
+  .screenai-message.ocr-result {
+    background: rgba(120, 120, 128, 0.16);
+    border-color: rgba(255, 255, 255, 0.06);
+    color: #f2f2f7;
+  }
+  .screenai-ocr-header { border-bottom-color: rgba(255, 255, 255, 0.06); }
+  .screenai-ocr-header > span { color: #8e8e93; }
+  .screenai-ocr-text { color: #f2f2f7; }
+  .screenai-copy-ocr-btn:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #f2f2f7;
+  }
+  .screenai-process-ocr-btn {
+    color: #0a84ff;
+    border-top-color: rgba(255, 255, 255, 0.06);
+  }
+  .screenai-process-ocr-btn:hover { background: rgba(10, 132, 255, 0.15); }
+  .screenai-process-ocr-btn:active { background: rgba(10, 132, 255, 0.22); }
+
+  .screenai-message blockquote {
+    color: #c7c7cc;
+    background: rgba(10, 132, 255, 0.1);
+    border-left-color: rgba(10, 132, 255, 0.6);
+  }
+  .screenai-message a {
+    color: #0a84ff;
+    border-bottom-color: rgba(10, 132, 255, 0.35);
+  }
+
+  .screenai-message.assistant p > code,
+  .screenai-message.assistant li > code,
+  .screenai-message.assistant h3 > code {
+    background-color: rgba(120, 120, 128, 0.28);
+    color: #f2f2f7;
+  }
+
+  .screenai-message.assistant pre { background: #0d0d0f; }
+
+  .screenai-copy-response-btn,
+  .screenai-regenerate-btn { color: #8e8e93; }
+  .screenai-copy-response-btn:hover,
+  .screenai-regenerate-btn:hover {
+    color: #0a84ff;
+    background-color: rgba(10, 132, 255, 0.15);
+  }
+
+  .screenai-footer-btn { color: #8e8e93; }
+  .screenai-footer-btn:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #f2f2f7;
+  }
+  #screenai-ocr-btn:hover {
+    color: #0a84ff;
+    background-color: rgba(10, 132, 255, 0.18);
+  }
+
+  #screenai-ai-input { color: #f2f2f7; }
+  #screenai-ai-input::placeholder { color: #8e8e93; }
+
+  #screenai-ai-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14);
+    background-clip: padding-box;
+  }
+  #screenai-ai-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.24);
+    background-clip: padding-box;
+  }
+}

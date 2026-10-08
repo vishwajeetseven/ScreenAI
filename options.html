@@ -1,72 +1,130 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
   <title>ScreenAI Settings</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      padding: 10px 20px;
-      width: 400px;
+      padding: 20px;
+      width: 520px;
+      color: #222;
     }
-    h2 {
-      font-weight: 600;
-    }
-    div {
-      margin-bottom: 15px;
-    }
-    label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: 500;
-    }
-    input {
+    h2 { font-weight: 600; margin-top: 0; }
+    h3 { font-weight: 600; margin-top: 24px; font-size: 15px; color: #333; }
+    div.field { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 13px; }
+    input[type="password"], input[type="text"], select, textarea {
       width: 100%;
       padding: 8px;
       box-sizing: border-box;
       border: 1px solid #ccc;
       border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
     }
+    textarea { resize: vertical; min-height: 60px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row input { flex: 1; }
     button {
       background-color: #007aff;
       color: white;
-      padding: 8px 15px;
+      padding: 8px 14px;
       border: none;
       border-radius: 5px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
+      white-space: nowrap;
     }
-    button:hover {
-      background-color: #0056b3;
-    }
-    #status {
-      margin-top: 10px;
-      font-weight: 500;
-      color: green;
-    }
-    p {
+    button:hover { background-color: #0056b3; }
+    button.secondary { background-color: #888; }
+    button.secondary:hover { background-color: #666; }
+    #status { margin-top: 10px; font-weight: 500; min-height: 18px; }
+    p.hint { font-size: 12px; color: #666; margin: 4px 0 0; }
+    .test-status { font-size: 12px; margin-left: 8px; }
+    .test-status.ok { color: green; }
+    .test-status.err { color: #c00; }
+    .actions { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+    .provider-desc {
       font-size: 12px;
-      color: #555;
+      color: #666;
+      margin-top: 4px;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1a1a; color: #eaeaea; }
+      h3 { color: #ccc; }
+      input, select, textarea { background: #2a2a2a; color: #eaeaea; border-color: #444; }
+      p.hint { color: #aaa; }
+      .provider-desc { color: #aaa; }
     }
   </style>
 </head>
 <body>
   <h2>ScreenAI Settings</h2>
-  
-  <div>
-    <label for="google-api-key">Google AI API Key:</label>
-    <input type="password" id="google-api-key" placeholder="Paste your key here (e.g., AIza...)">
-    <p>Get your key from Google AI Studio.</p>
+
+  <h3>Active AI Provider</h3>
+  <div class="field">
+    <label for="active-provider">Choose which AI to use:</label>
+    <select id="active-provider"></select>
+    <div class="provider-desc" id="provider-desc"></div>
   </div>
 
-  <div>
+  <div id="provider-keys-container"></div>
+
+  <h3>Model Preferences</h3>
+  <div class="field">
+    <label for="text-model">Text Model:</label>
+    <select id="text-model"></select>
+  </div>
+  <div class="field">
+    <label for="vision-model">Vision Model (Image Analysis):</label>
+    <select id="vision-model"></select>
+  </div>
+
+  <h3>Customization</h3>
+  <div class="field">
+    <label for="system-prompt">Custom System Prompt (optional):</label>
+    <textarea id="system-prompt" placeholder="e.g., You are a helpful coding assistant. Be concise."></textarea>
+  </div>
+
+  <h3>OCR (OCR.space)</h3>
+  <div class="field">
     <label for="ocr-api-key">OCR.space API Key:</label>
-    <input type="password" id="ocr-api-key" placeholder="Paste your key here (e.g., 61490dd0e288957)">
-    <p>Get your key from <a href="https://ocr.space/ocrapi" target="_blank">ocr.space</a>. (The free key is fine).</p>
+    <div class="row">
+      <input type="password" id="ocr-api-key" placeholder="e.g., 61490dd0e288957">
+      <button id="test-ocr" class="secondary">Test</button>
+      <span class="test-status" id="ocr-status"></span>
+    </div>
+    <p class="hint">Get a free key at <a href="https://ocr.space/ocrapi" target="_blank">ocr.space</a>.</p>
+  </div>
+  <div class="field">
+    <label for="ocr-language">OCR Language:</label>
+    <select id="ocr-language">
+      <option value="eng">English</option>
+      <option value="spa">Spanish</option>
+      <option value="fre">French</option>
+      <option value="ger">German</option>
+      <option value="ita">Italian</option>
+      <option value="por">Portuguese</option>
+      <option value="rus">Russian</option>
+      <option value="chi_sim">Chinese (Simplified)</option>
+      <option value="jpn">Japanese</option>
+      <option value="kor">Korean</option>
+      <option value="ara">Arabic</option>
+      <option value="hin">Hindi</option>
+    </select>
   </div>
 
-  <button id="save-btn">Save Keys</button>
+  <div class="actions">
+    <button id="save-btn">Save Settings</button>
+    <button id="export-btn" class="secondary">Export</button>
+    <button id="import-btn" class="secondary">Import</button>
+    <input type="file" id="import-file" style="display: none;" accept="application/json" />
+  </div>
+
   <div id="status"></div>
 
+  <script src="providers.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

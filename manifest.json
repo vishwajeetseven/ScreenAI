@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
   "name": "ScreenAI",
-  "version": "2.7",
-  "description": "AI assistance (Ctrl+Shift+X) with image and clipboard OCR.",
+  "version": "4.0",
+  "description": "Multi-provider AI assistance with OCR.",
 
   "icons": {
     "128": "icon.png"
   },
-  
+
   "permissions": [
     "contextMenus",
     "scripting",
@@ -15,26 +15,37 @@
     "storage"
   ],
   "host_permissions": [
+    "https://api.openai.com/",
+    "https://api.anthropic.com/",
     "https://generativelanguage.googleapis.com/",
+    "https://api.mistral.ai/",
+    "https://api.groq.com/",
+    "https://openrouter.ai/",
+    "https://api.x.ai/",
+    "https://api.deepseek.com/",
+    "https://api.perplexity.ai/",
+    "https://api.cohere.com/",
     "https://images1-focus-opensocial.googleusercontent.com/",
-    "https://api.ocr.space/"
+    "https://api.ocr.space/",
+    "http://localhost:11434/"
   ],
-  
+
   "background": {
     "service_worker": "background.js"
   },
-  
+
   "options_page": "options.html",
-  
+
   "action": {
     "default_icon": "icon.png",
     "default_title": "ScreenAI Settings"
   },
-  
+
   "commands": {
     "activate-ai": {
       "suggested_key": {
-        "default": "Ctrl+Shift+X"
+        "default": "Ctrl+Shift+X",
+        "mac": "Command+Shift+X"
       },
       "description": "Activate AI Assistant"
     }

@@ -1,162 +1,176 @@
-// snipper.js (Updated for clear selection area)
-
+// snipper.js (v4.0)
 (() => {
-  // --- Guard against multiple injections ---
-  if (window.hasScreenAISnipper) {
-    return;
-  }
+  if (window.hasScreenAISnipper) return;
   window.hasScreenAISnipper = true;
 
   let startX, startY, overlay, selectionBox;
   let isDragging = false;
-  
-  // --- Create Overlay (the dimming) ---
+  let isTouch = false;
+
   overlay = document.createElement('div');
   overlay.id = 'screenai-snip-overlay';
-  overlay.style.position = 'fixed';
-  overlay.style.top = '0';
-  overlay.style.left = '0';
-  overlay.style.width = '100vw';
-  overlay.style.height = '100vh';
-  overlay.style.background = 'rgba(0, 0, 0, 0.3)';
-  overlay.style.zIndex = '2147483645'; 
-  overlay.style.cursor = 'crosshair';
-  // --- NEW: Use clip-path to punch a "hole" ---
-  overlay.style.clipPath = 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)'; // Full overlay initially
+  Object.assign(overlay.style, {
+    position: 'fixed',
+    top: '0',
+    left: '0',
+    width: '100%',
+    height: '100%',
+    background: 'rgba(0, 0, 0, 0.3)',
+    zIndex: '2147483645',
+    cursor: 'crosshair',
+    touchAction: 'none'
+  });
+  overlay.style.clipPath = 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)';
   document.body.appendChild(overlay);
 
-  // --- Create Selection Box (just the border) ---
   selectionBox = document.createElement('div');
   selectionBox.id = 'screenai-snip-selection';
-  selectionBox.style.position = 'fixed';
-  selectionBox.style.border = '2px dashed #fff';
-  selectionBox.style.boxSizing = 'border-box'; // Ensure border is included in size
-  // --- MODIFIED: Remove background ---
-  // selectionBox.style.background = 'rgba(255, 255, 255, 0.1)'; 
-  selectionBox.style.zIndex = '2147483646'; // On top
-  selectionBox.style.visibility = 'hidden';
-  // --- NEW: Make transparent to mouse events ---
-  selectionBox.style.pointerEvents = 'none'; 
+  Object.assign(selectionBox.style, {
+    position: 'fixed',
+    border: '2px dashed #fff',
+    boxSizing: 'border-box',
+    zIndex: '2147483646',
+    visibility: 'hidden',
+    pointerEvents: 'none'
+  });
   document.body.appendChild(selectionBox);
 
-  // --- Event Listeners ---
-  // Listen on the overlay
-  overlay.addEventListener('mousedown', onMouseDown); 
+  overlay.addEventListener('mousedown', onStart);
+  overlay.addEventListener('touchstart', onStart, { passive: false });
   document.addEventListener('keydown', onKeyDown);
 
-  function onMouseDown(e) {
-    e.preventDefault();
-    e.stopPropagation(); 
-    
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    
-    selectionBox.style.left = startX + 'px';
-    selectionBox.style.top = startY + 'px';
-    selectionBox.style.width = '0px';
-    selectionBox.style.height = '0px';
-    selectionBox.style.visibility = 'visible';
-    
-    // Add move/up listeners to the document
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+  function getPoint(e) {
+    if (e.touches && e.touches.length > 0) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
   }
 
-  function onMouseMove(e) {
+  function onStart(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    isDragging = true;
+    isTouch = !!e.touches;
+
+    const p = getPoint(e);
+    startX = p.x;
+    startY = p.y;
+
+    Object.assign(selectionBox.style, {
+      left: startX + 'px',
+      top: startY + 'px',
+      width: '0px',
+      height: '0px',
+      visibility: 'visible'
+    });
+
+    if (isTouch) {
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('touchend', onEnd);
+    } else {
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onEnd);
+    }
+  }
+
+  function onMove(e) {
     if (!isDragging) return;
     e.preventDefault();
-    
-    const currentX = e.clientX;
-    const currentY = e.clientY;
 
-    // Calculate box dimensions
+    const p = getPoint(e);
+    const currentX = p.x;
+    const currentY = p.y;
+
     let width = currentX - startX;
     let height = currentY - startY;
     let left = startX;
     let top = startY;
 
-    if (width < 0) {
-      width = -width;
-      left = currentX;
-    }
-    if (height < 0) {
-      height = -height;
-      top = currentY;
-    }
+    if (width < 0) { width = -width; left = currentX; }
+    if (height < 0) { height = -height; top = currentY; }
 
-    // Resize dashed border box
-    selectionBox.style.left = left + 'px';
-    selectionBox.style.top = top + 'px';
-    selectionBox.style.width = width + 'px';
-    selectionBox.style.height = height + 'px';
-    
-    // --- NEW: Update clip-path to punch a hole ---
-    // This creates an "outer" polygon for the whole screen
-    // and an "inner" polygon for the selection, creating a hole.
+    left = Math.max(0, Math.min(left, window.innerWidth));
+    top = Math.max(0, Math.min(top, window.innerHeight));
+    width = Math.min(width, window.innerWidth - left);
+    height = Math.min(height, window.innerHeight - top);
+
+    Object.assign(selectionBox.style, {
+      left: left + 'px',
+      top: top + 'px',
+      width: width + 'px',
+      height: height + 'px'
+    });
+
     overlay.style.clipPath = `polygon(
       0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%,
-      ${left}px ${top}px, 
-      ${left + width}px ${top}px, 
-      ${left + width}px ${top + height}px, 
+      ${left}px ${top}px,
+      ${left + width}px ${top}px,
+      ${left + width}px ${top + height}px,
       ${left}px ${top + height}px,
       ${left}px ${top}px
     )`;
-    // --- END NEW ---
   }
 
-  function onMouseUp(e) {
+  function onEnd(e) {
     if (!isDragging) return;
     isDragging = false;
-    
-    // Remove global listeners
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-    
-    const endX = e.clientX;
-    const endY = e.clientY;
+
+    if (isTouch) {
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+    } else {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onEnd);
+    }
+
+    const p = getPoint(e);
+    const endX = p.x;
+    const endY = p.y;
 
     let x = Math.min(startX, endX);
     let y = Math.min(startY, endY);
     let width = Math.abs(endX - startX);
     let height = Math.abs(endY - startY);
 
-    cleanup(); // Clean up UI
+    x = Math.max(0, Math.min(x, window.innerWidth));
+    y = Math.max(0, Math.min(y, window.innerHeight));
+    width = Math.min(width, window.innerWidth - x);
+    height = Math.min(height, window.innerHeight - y);
+
+    cleanup();
 
     if (width > 5 && height > 5) {
-      // Send message to background
       chrome.runtime.sendMessage({
         type: 'captureRegion',
-        x: x,
-        y: y,
-        width: width,
-        height: height,
-        dpr: window.devicePixelRatio
+        x, y, width, height,
+        dpr: window.devicePixelRatio || 1
       });
     } else {
-      // Invalid snip
       chrome.runtime.sendMessage({ type: 'cancelScreenshot' });
     }
   }
 
   function onKeyDown(e) {
     if (e.key === 'Escape') {
-      isDragging = false; // Just in case
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      isDragging = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onEnd);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
       cleanup();
       chrome.runtime.sendMessage({ type: 'cancelScreenshot' });
     }
   }
 
   function cleanup() {
-    if (overlay.parentElement) {
-      overlay.remove();
-    }
-    if (selectionBox.parentElement) {
-      selectionBox.remove();
-    }
+    overlay?.remove();
+    selectionBox?.remove();
     document.removeEventListener('keydown', onKeyDown);
+    window.hasScreenAISniper = false;
     window.hasScreenAISnipper = false;
   }
 })();
