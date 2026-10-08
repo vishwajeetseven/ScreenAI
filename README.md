@@ -33,7 +33,8 @@ Because it's a "Bring-Your-Own-Key" (BYOK) tool, you have full control. There ar
 
 ## Screenshot
 
-![Uploading image.png…]()
+<img width="422" height="529" alt="Screenshot 2026-10-08 at 11 18 22 PM" src="https://github.com/user-attachments/assets/01aaeae2-30b4-4a66-a3ac-5fd89bd401e3" />
+
 
 <!-- <img width="1366" height="768" alt="ScreenAI Screenshot" src="https://github.com/user-attachments/assets/7ea90ed7-656b-4fa6-9744-67f9fcbad65c" /> -->
 
