@@ -33,7 +33,9 @@ Because it's a "Bring-Your-Own-Key" (BYOK) tool, you have full control. There ar
 
 ## Screenshot
 
-<img width="1366" height="768" alt="ScreenAI Screenshot" src="https://github.com/user-attachments/assets/7ea90ed7-656b-4fa6-9744-67f9fcbad65c" />
+![Uploading image.png…]()
+
+<!-- <img width="1366" height="768" alt="ScreenAI Screenshot" src="https://github.com/user-attachments/assets/7ea90ed7-656b-4fa6-9744-67f9fcbad65c" /> -->
 
 ## Installation & Setup
 
